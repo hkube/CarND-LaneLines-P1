@@ -13,6 +13,12 @@ import os
 import P1_Helper
 from mpl_toolkits.axes_grid1 import ImageGrid
 
+# Define region of interest globally
+roiTop = 330
+roiTopLeft = 460
+roiTopRight = 500
+
+
 imgPane = plt.figure(1, (10., 10.))
 grid = None
 gridIndex = 0
@@ -29,6 +35,7 @@ def plotImage(image, cmap=None):
     
 
 def process_image(image):
+    P1_Helper.setRoiTop(roiTop)
     imgGray = P1_Helper.grayscale(image)
     imgBlur = P1_Helper.gaussian_blur(imgGray, 9)     
     imgCanny = P1_Helper.canny(imgBlur, 50, 150)
@@ -36,7 +43,7 @@ def process_image(image):
     
     maxX = imgGray.shape[1]-1
     maxY = imgGray.shape[0]-1
-    imageMask = np.array([[[0, maxY], [maxX/2-20, maxY/2+40], [maxX/2+20, maxY/2+40], [maxX, maxY], [0, maxY]]], dtype=np.int32)
+    imageMask = np.array([[[0, maxY], [roiTopLeft, roiTop], [roiTopRight, roiTop], [maxX, maxY], [0, maxY]]], dtype=np.int32)
     imgCrop = P1_Helper.region_of_interest(imgCanny, imageMask)
     
     imgLines = P1_Helper.hough_lines(imgCrop, rho=1, theta=np.pi/180, threshold=10, min_line_len=70, max_line_gap=70)

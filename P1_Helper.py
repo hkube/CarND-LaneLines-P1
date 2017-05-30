@@ -1,6 +1,15 @@
 import math
 import numpy as np
 import cv2
+from matplotlib.pyplot import hist
+from json.decoder import NaN
+
+roiTop = 0
+
+def setRoiTop(value):
+    """Return the dimensions of the region of interest (top, topLeft, and topRight) """
+    global roiTop
+    roiTop = value
 
 def grayscale(img):
     """Applies the Grayscale transform
@@ -62,9 +71,86 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
     If you want to make the lines semi-transparent, think about combining
     this function with the weighted_img() function below
     """
+    if False:
+        for line in lines:
+            for x1,y1,x2,y2 in line:
+                cv2.line(img, (x1, y1), (x2, y2), color, 5) #thickness)
+        return
+
+    global roiTop
+    binsize = 20
+    ymax = img.shape[0]
+    hist = [ [] for _ in range(img.shape[1]//binsize +1) ]
+    binload = [ 0 for _ in range(len(hist))]
+
     for line in lines:
         for x1,y1,x2,y2 in line:
-            cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+            if x2 != x1:
+                # Calculate the slope and the offset (the intersection with the bottom of the image)
+                m = (y1-y2)/(x2-x1)
+                if abs(m) > 1e-3:
+                    x0 = x1 - (ymax-y1)/m
+                else:
+                    continue
+            else:
+                # In case of vertical lines use fixed values to prevent division by zero!
+                m = 1e9
+                x0 = x1
+            binNum = int(x0)//binsize
+            if binNum >= 0 and binNum < len(hist):
+                # Put the line into the corresponding bin
+                hist[binNum].append((m, x0))
+                # Increment the bin load counter
+                binload[binNum] += 1
+            cv2.line(img, (x1, y1), (x2, y2), [0, 255, 0], 2)
+
+    # Find the bin with the highest load
+    mval, midx = max([(v, i) for i,v in enumerate(binload)])
+#    print("binload:", binload)
+#    print("binload max:", mval, " at:", midx)
+
+    lines2 = []
+    if mval > 0:
+        # Calculate the average slope and offset of the line segment in the bin with the highest load and its neighbor bins
+        lineSegments = hist[midx]
+        if midx > 0:
+            lineSegments += hist[midx-1]
+        if midx < (len(hist)-1):
+            lineSegments += hist[midx+1]  
+        mMean = np.mean([m for m,x0 in lineSegments])
+        x0Mean = np.mean([x0 for m,x0 in lineSegments])
+        lines2.append((mMean, x0Mean))
+    
+        # Reset the number of line segments in the used bins
+        binload[midx] = 0
+        if midx > 0:
+            binload[midx-1] = 0
+        if midx < (len(hist)-1):
+            binload[midx+1] = 0
+
+    # Search the bin with the second highest number of line segments
+    mval, midx = max([(v, i) for i,v in enumerate(binload)])
+#    print("binload:", binload)
+#    print("binload max:", mval, " at:", midx)
+
+    if mval > 0:
+        # Calculate the average slope and offset of the line segment in the bin with the second highest load and its neighbor bins
+        lineSegments = hist[midx]
+        if midx > 0:
+            lineSegments += hist[midx-1]
+        if midx < (len(hist)-1):
+            lineSegments += hist[midx+1]  
+        mMean = np.mean([m for m,x0 in lineSegments])
+        x0Mean = np.mean([x0 for m,x0 in lineSegments])
+        lines2.append((mMean, x0Mean))
+
+#    print("lines2:", lines2)
+    for m,x0 in lines2:
+        y2 = int(roiTop)
+        x2 = int(x0 + (ymax-y2)/m)
+        cv2.line(img, (int(x0), img.shape[0]), (x2, y2), color, thickness)
+
+
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     """

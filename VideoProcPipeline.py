@@ -13,7 +13,7 @@ from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
 # Define region of interest globally
-roiTop = 330
+roiTop = 320
 roiTopLeft = 460
 roiTopRight = 500
 

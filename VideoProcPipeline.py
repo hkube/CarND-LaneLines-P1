@@ -22,19 +22,14 @@ def process_image(image):
     P1_Helper.setRoiTop(roiTop)
     imgGray = P1_Helper.grayscale(image)
     imgBlur = P1_Helper.gaussian_blur(imgGray, 5)
-    imgCanny = P1_Helper.canny(imgBlur, 50, 150)
-#    plotImage(imgCanny, cmap="gray")
+    imgCanny = P1_Helper.canny(imgBlur, 40, 100)
 
     maxX = imgGray.shape[1]-1
     maxY = imgGray.shape[0]-1
     imageMask = np.array([[[0, maxY], [roiTopLeft, roiTop], [roiTopRight, roiTop], [maxX, maxY], [0, maxY]]], dtype=np.int32)
     imgCrop = P1_Helper.region_of_interest(imgCanny, imageMask)
-
-    imgLines = P1_Helper.hough_lines(imgCrop, rho=1, theta=np.pi/180, threshold=10, min_line_len=40, max_line_gap=20)
-#    plotImage(imgLines) #, cmap="gray")
-
+    imgLines = P1_Helper.hough_lines(imgCrop, rho=1, theta=np.pi/180, threshold=10, min_line_len=40, max_line_gap=30)
     result = cv2.add(image, imgLines)
-#    print("result is", type(image), "with dimensions", image.shape)
     return result
 
 
@@ -50,6 +45,16 @@ white_clip.write_videofile(white_output, audio=False)
 
 yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4')
+yellow_clip = clip2.fl_image(process_image)
+yellow_clip.write_videofile(yellow_output, audio=False)
+
+# re-define the roi because challenge.mp4 has a size of 1280x720 
+roiTop = 420
+roiTopLeft = 620
+roiTopRight = 660
+
+yellow_output = 'test_videos_output/challenge.mp4'
+clip2 = VideoFileClip('test_videos/challenge.mp4')
 yellow_clip = clip2.fl_image(process_image)
 yellow_clip.write_videofile(yellow_output, audio=False)
 print('Done')

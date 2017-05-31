@@ -1,8 +1,6 @@
 import math
 import numpy as np
 import cv2
-from matplotlib.pyplot import hist
-from json.decoder import NaN
 
 roiTop = 0
 
@@ -54,7 +52,7 @@ def region_of_interest(img, vertices):
     return masked_image
 
 
-def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
+def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
     """
     NOTE: this is the function you might want to use as a starting point once you want to
     average/extrapolate the line segments you detect to map out the full
@@ -78,17 +76,20 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
         return
 
     global roiTop
-    binsize = 20
+    maxInvSlope = 3
+    binSize = 0.2
     ymax = img.shape[0]
-    hist = [ [] for _ in range(img.shape[1]//binsize +1) ]
-    binload = [ 0 for _ in range(len(hist))]
+    histPos = [ [] for _ in range(int(maxInvSlope/binSize)) ]
+    histNeg = [ [] for _ in range(int(maxInvSlope/binSize)) ]
+    binloadPos = [ 0 for _ in range(len(histPos))]
+    binloadNeg = [ 0 for _ in range(len(histNeg))]
 
     for line in lines:
         for x1,y1,x2,y2 in line:
             if x2 != x1:
                 # Calculate the slope and the offset (the intersection with the bottom of the image)
                 m = (y1-y2)/(x2-x1)
-                if abs(m) > 1e-3:
+                if abs(m) > 0.29:
                     x0 = x1 - (ymax-y1)/m
                 else:
                     continue
@@ -96,59 +97,57 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
                 # In case of vertical lines use fixed values to prevent division by zero!
                 m = 1e9
                 x0 = x1
-            binNum = int(x0)//binsize
-            if binNum >= 0 and binNum < len(hist):
-                # Put the line into the corresponding bin
-                hist[binNum].append((m, x0))
-                # Increment the bin load counter
-                binload[binNum] += 1
-            cv2.line(img, (x1, y1), (x2, y2), [0, 255, 0], 2)
+            binNum = int(1/abs(m)/binSize)
+            if m >= 0:
+                if binNum >= 0 and binNum < len(binloadPos):
+                    # Put the line into the corresponding bin
+                    histPos[binNum].append((m, x0))
+                    # Increment the bin load counter
+                    binloadPos[binNum] += 1
+            else:
+                if binNum >= 0 and binNum < len(binloadNeg):
+                    # Put the line into the corresponding bin
+                    histNeg[binNum].append((m, x0))
+                    # Increment the bin load counter
+                    binloadNeg[binNum] += 1
+#            cv2.line(img, (x1, y1), (x2, y2), [0, 255, 0], 2)
 
-    # Find the bin with the highest load
-    mval, midx = max([(v, i) for i,v in enumerate(binload)])
-#    print("binload:", binload)
-#    print("binload max:", mval, " at:", midx)
+    # Find the bin in the histogram of positive slopes with the highest load
+    mval, midx = max([(v, i) for i,v in enumerate(binloadPos)])
 
     lines2 = []
     if mval > 0:
         # Calculate the average slope and offset of the line segment in the bin with the highest load and its neighbor bins
-        lineSegments = hist[midx]
+        lineSegments = histPos[midx]
         if midx > 0:
-            lineSegments += hist[midx-1]
-        if midx < (len(hist)-1):
-            lineSegments += hist[midx+1]  
+            lineSegments += histPos[midx-1]
+        if midx < (len(histPos)-1):
+            lineSegments += histPos[midx+1]
         mMean = np.mean([m for m,x0 in lineSegments])
         x0Mean = np.mean([x0 for m,x0 in lineSegments])
         lines2.append((mMean, x0Mean))
-    
-        # Reset the number of line segments in the used bins
-        binload[midx] = 0
-        if midx > 0:
-            binload[midx-1] = 0
-        if midx < (len(hist)-1):
-            binload[midx+1] = 0
+
 
     # Search the bin with the second highest number of line segments
-    mval, midx = max([(v, i) for i,v in enumerate(binload)])
-#    print("binload:", binload)
-#    print("binload max:", mval, " at:", midx)
+    mval, midx = max([(v, i) for i,v in enumerate(binloadNeg)])
 
     if mval > 0:
         # Calculate the average slope and offset of the line segment in the bin with the second highest load and its neighbor bins
-        lineSegments = hist[midx]
+        lineSegments = histNeg[midx]
         if midx > 0:
-            lineSegments += hist[midx-1]
-        if midx < (len(hist)-1):
-            lineSegments += hist[midx+1]  
+            lineSegments += histNeg[midx-1]
+        if midx < (len(histNeg)-1):
+            lineSegments += histNeg[midx+1]
         mMean = np.mean([m for m,x0 in lineSegments])
         x0Mean = np.mean([x0 for m,x0 in lineSegments])
         lines2.append((mMean, x0Mean))
 
-#    print("lines2:", lines2)
     for m,x0 in lines2:
+        y1 = int(img.shape[0])
+        x1 = int(x0)
         y2 = int(roiTop)
         x2 = int(x0 + (ymax-y2)/m)
-        cv2.line(img, (int(x0), img.shape[0]), (x2, y2), color, thickness)
+        cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
 
 

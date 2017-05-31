@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 
 roiTop = 0
+prevLeftLines = []
+prevRightLines = []
 
 def setRoiTop(value):
     """Return the dimensions of the region of interest (top, topLeft, and topRight) """
@@ -76,6 +78,9 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
         return
 
     global roiTop
+    global prevLeftLines
+    global prevRightLines
+    maxPrevLines = 5 # The maximum number of lines in the arrays above
     maxInvSlope = 3
     binSize = 0.2
     ymax = img.shape[0]
@@ -125,14 +130,20 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
             lineSegments += histPos[midx+1]
         mMean = np.mean([m for m,x0 in lineSegments])
         x0Mean = np.mean([x0 for m,x0 in lineSegments])
-        lines2.append((mMean, x0Mean))
+#        lines2.append((mMean, x0Mean))
+        prevLeftLines.append((mMean, x0Mean))
+        if len(prevLeftLines) > maxPrevLines:
+            prevLeftLines.pop(0)
+        mAvg = np.mean([m for m,x0 in prevLeftLines])
+        x0Avg = np.mean([x0 for m,x0 in prevLeftLines])
+        lines2.append((mAvg, x0Avg))
 
 
     # Search the bin with the second highest number of line segments
     mval, midx = max([(v, i) for i,v in enumerate(binloadNeg)])
 
     if mval > 0:
-        # Calculate the average slope and offset of the line segment in the bin with the second highest load and its neighbor bins
+        # Calculate the average slope and offset of the line segment in the bin with the highest load and its neighbor bins
         lineSegments = histNeg[midx]
         if midx > 0:
             lineSegments += histNeg[midx-1]
@@ -140,7 +151,13 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
             lineSegments += histNeg[midx+1]
         mMean = np.mean([m for m,x0 in lineSegments])
         x0Mean = np.mean([x0 for m,x0 in lineSegments])
-        lines2.append((mMean, x0Mean))
+#        lines2.append((mMean, x0Mean))
+        prevRightLines.append((mMean, x0Mean))
+        if len(prevRightLines) > maxPrevLines:
+            prevRightLines.pop(0)
+        mAvg = np.mean([m for m,x0 in prevRightLines])
+        x0Avg = np.mean([x0 for m,x0 in prevRightLines])
+        lines2.append((mAvg, x0Avg))
 
     for m,x0 in lines2:
         y1 = int(img.shape[0])

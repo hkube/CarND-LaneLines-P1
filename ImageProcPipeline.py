@@ -14,7 +14,7 @@ import P1_Helper
 from mpl_toolkits.axes_grid1 import ImageGrid
 
 # Define region of interest globally
-roiTop = 330
+roiTop = 320
 roiTopLeft = 460
 roiTopRight = 500
 
@@ -25,7 +25,7 @@ gridIndex = 0
 
 def plotPrepare(count):
     global grid
-    grid = ImageGrid(imgPane, 111, nrows_ncols=(len(testImages), 2), axes_pad=0.1)
+    grid = ImageGrid(imgPane, 111, nrows_ncols=(len(testImages), 3), axes_pad=0.1)
    
 
 def plotImage(image, cmap=None):
@@ -37,17 +37,17 @@ def plotImage(image, cmap=None):
 def process_image(image):
     P1_Helper.setRoiTop(roiTop)
     imgGray = P1_Helper.grayscale(image)
-    imgBlur = P1_Helper.gaussian_blur(imgGray, 9)     
-    imgCanny = P1_Helper.canny(imgBlur, 50, 150)
+    imgBlur = P1_Helper.gaussian_blur(imgGray, 5)     
+    imgCanny = P1_Helper.canny(imgBlur, 40, 100)
 #    plotImage(imgCanny, cmap="gray")
     
     maxX = imgGray.shape[1]-1
     maxY = imgGray.shape[0]-1
     imageMask = np.array([[[0, maxY], [roiTopLeft, roiTop], [roiTopRight, roiTop], [maxX, maxY], [0, maxY]]], dtype=np.int32)
     imgCrop = P1_Helper.region_of_interest(imgCanny, imageMask)
+    plotImage(imgCrop, cmap="gray")
     
-    imgLines = P1_Helper.hough_lines(imgCrop, rho=1, theta=np.pi/180, threshold=10, min_line_len=70, max_line_gap=70)
-#    plotImage(imgLines) #, cmap="gray")
+    imgLines = P1_Helper.hough_lines(imgCrop, rho=1, theta=np.pi/180, threshold=10, min_line_len=40, max_line_gap=30)
     
     result = cv2.add(image, imgLines)
     print("result is", type(image), "with dimensions", image.shape)
